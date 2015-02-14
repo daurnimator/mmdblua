@@ -1,6 +1,7 @@
 -- This implements a lua parser of http://maxmind.github.io/MaxMind-DB/
 
-local bit = require "bit"
+local _, bit = pcall(function() require "bit" end)
+if not bit then _, bit = require "bit32" end
 local has_ffi , ffi = pcall ( require , "ffi" )
 
 local mmdb_seperator = "\171\205\239MaxMind.com"
