@@ -104,6 +104,7 @@ end
 
 function geodb_methods:read_pointer ( base , offset , magic )
 	local size = bit.rshift ( magic , 3 )
+	local pointer
 	if size == 0 then
 		-- If the size is 0, the pointer is built by appending the next byte to the last three bits to produce an 11-bit value
 		local o1 = self.contents:byte ( base + offset )
