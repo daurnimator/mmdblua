@@ -3,7 +3,7 @@
 local bit = require "bit"
 local has_ffi , ffi = pcall ( require , "ffi" )
 
-local mmdb_seperator = "\171\205\239MaxMind.com"
+local mmdb_separator = "\171\205\239MaxMind.com"
 
 local geodb_methods = { }
 local geodb_mt = {
@@ -20,7 +20,7 @@ local function open_db ( filename )
 		-- Find data section seperator; at most it's 128kb from the end
 		local init = math.max ( 1 , #contents-(128*1024) )
 		while true do
-			local s , e = contents:find ( mmdb_seperator , start_metadata or init , true )
+			local s , e = contents:find ( mmdb_separator , start_metadata or init , true )
 			if s == nil then break end
 			start_metadata = e + 1
 		end
