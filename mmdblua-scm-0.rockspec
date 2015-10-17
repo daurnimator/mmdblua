@@ -19,6 +19,5 @@ build = {
 	type = "builtin" ;
 	modules = {
 		["mmdb"]     = "mmdb.lua";
-		["IEEE-754"] = "IEEE-754.lua";
 	} ;
 }
