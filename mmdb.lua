@@ -10,17 +10,45 @@ local geodb_methods = { }
 local geodb_mt = {
 	__index = geodb_methods ;
 }
+local file_contents_methods = { }
+local file_contents_mt = {
+	__index = file_contents_methods ;
+}
 local data_types = { }
 local getters = { }
 
-local function open_db ( filename )
+function file_contents_methods:normalize_index ( i )
+	return math.max ( 1 , i >= 0 and i or self.size + i + 1 )
+end
+
+function file_contents_methods:sub ( i , j )
+	i , j = self:normalize_index ( i ) , math.min ( self.size , self:normalize_index ( j or -1 ) )
+	if j < i then return "" end
+	assert ( self.fd:seek ( "set" , i - 1 ) )
+	local sub = assert ( self.fd:read ( j - i + 1 ) )
+	assert ( #sub == j - i + 1 , "Could not read the requested chunk completely" )
+	return sub
+end
+
+function file_contents_methods:byte ( i , j )
+	return self:sub ( i , j or i ) :byte ( 1 , -1 )
+end
+
+local function open_db ( filename , read_once )
 	local fd = assert ( io.open ( filename , "rb" ) )
-	local contents = assert ( fd:read ( "*a" ) )
+	local size, contents
+	if read_once then
+    size = #contents
+		contents = assert ( fd:read ( "*a" ) )
+	else
+		size = assert ( fd:seek( "end" ) )
+		contents = setmetatable ( { fd = fd , size = size } , file_contents_mt )
+	end
 
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
-		local last_chunk_begin = math.max ( 1 , #contents-(128*1024) )
-		local last_chunk = contents:sub(last_chunk_begin)
+		local last_chunk_begin = math.max ( 1 , size - 128 * 1024 + 1 )
+		local last_chunk = contents:sub ( last_chunk_begin )
 		while true do
 			local s , e = last_chunk:find ( mmdb_separator , start_metadata or 1 , true )
 			if s == nil then break end
