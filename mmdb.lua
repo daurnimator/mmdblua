@@ -19,15 +19,17 @@ local function open_db ( filename )
 
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
-		local init = math.max ( 1 , #contents-(128*1024) )
+		local last_chunk_begin = math.max ( 1 , #contents-(128*1024) )
+		local last_chunk = contents:sub(last_chunk_begin)
 		while true do
-			local s , e = contents:find ( mmdb_separator , start_metadata or init , true )
+			local s , e = last_chunk:find ( mmdb_separator , start_metadata or 1 , true )
 			if s == nil then break end
 			start_metadata = e + 1
 		end
 		if start_metadata == nil then
 			error ( "Invalid MaxMind Database" )
 		end
+		start_metadata = start_metadata + last_chunk_begin - 1
 	end
 
 	local self = setmetatable ( {
