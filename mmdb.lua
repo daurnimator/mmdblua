@@ -1,8 +1,8 @@
 -- This implements a lua parser of http://maxmind.github.io/MaxMind-DB/
 
-local okbit32, bit = pcall ( require , "bit32" )
-bit = okbit32 and bit or require"bit"
-local unpack = string.unpack or require("struct").unpack
+local has_bit32, bit = pcall ( require , "bit32" )
+bit = has_bit32 and bit or require ( "bit" )
+local sunpack = string.unpack or require ( "struct" ).unpack
 
 local mmdb_separator = "\171\205\239MaxMind.com"
 
@@ -38,7 +38,7 @@ local function open_db ( filename , read_once )
 	local fd = assert ( io.open ( filename , "rb" ) )
 	local size, contents
 	if read_once then
-    size = #contents
+		size = #contents
 		contents = assert ( fd:read ( "*a" ) )
 	else
 		size = assert ( fd:seek( "end" ) )
@@ -186,14 +186,14 @@ data_types [ 4 ] = geodb_methods.read_string -- Binary
 function geodb_methods:read_double ( base , offset , length )
 	assert ( length == 8 , "double of non-8 length" )
 	local src = self.contents:sub ( base + offset , base + offset + 8 - 1 )
-	return offset + 8 , unpack ( ">d", src )
+	return offset + 8 , sunpack ( ">d", src )
 end
 data_types [ 3 ] = geodb_methods.read_double -- Double
 
 function geodb_methods:read_float ( base , offset , length )
 	assert ( length == 4 , "float of non-4 length" )
 	local src = self.contents:sub ( base + offset , base + offset + 4 - 1 )
-	return offset + 4 , unpack ( ">f", src )
+	return offset + 4 , sunpack ( ">f", src )
 end
 data_types [ 15 ] = geodb_methods.read_float -- Float
 
@@ -202,14 +202,14 @@ data_types [ 15 ] = geodb_methods.read_float -- Float
 
 -- General function
 function geodb_methods:read_unsigned ( base , offset , length )
-  if length == 0 then return offset , 0 end
+	if length == 0 then return offset , 0 end
 	local bytes = self.contents:sub ( base + offset , base + offset + length - 1 )
-	return offset + length , unpack(">I" .. length, bytes)
+	return offset + length , sunpack (">I" .. length, bytes)
 end
 function geodb_methods:read_signed ( base , offset , length )
-  if length == 0 then return offset , 0 end
-  local bytes = self.contents:sub ( base + offset , base + offset + length - 1 )
-  return offset + length , unpack(">i" .. length, bytes)
+	if length == 0 then return offset , 0 end
+	local bytes = self.contents:sub ( base + offset , base + offset + length - 1 )
+	return offset + length , sunpack (">i" .. length, bytes)
 end
 
 data_types [ 5 ] = geodb_methods.read_unsigned -- unsigned 16-bit int
