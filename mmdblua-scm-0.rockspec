@@ -12,7 +12,7 @@ dependencies = {
 }
 
 source = {
-	url = "git://github.com/daurnimator/mmdblua.git";
+	url = "git://github.com/pisto/mmdblua.git";
 }
 
 build = {
