@@ -12,13 +12,12 @@ dependencies = {
 }
 
 source = {
-	url = "git://github.com/daurnimator/mmdblua.git";
+	url = "git://github.com/pisto/mmdblua.git";
 }
 
 build = {
 	type = "builtin" ;
 	modules = {
 		["mmdb"]     = "mmdb.lua";
-		["IEEE-754"] = "IEEE-754.lua";
 	} ;
 }

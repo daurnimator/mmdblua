@@ -1,7 +1,8 @@
 -- This implements a lua parser of http://maxmind.github.io/MaxMind-DB/
 
-local bit = require "bit"
-local has_ffi , ffi = pcall ( require , "ffi" )
+local has_bit32, bit = pcall ( require , "bit32" )
+bit = has_bit32 and bit or require ( "bit" )
+local sunpack = string.unpack or require ( "struct" ).unpack
 
 local mmdb_separator = "\171\205\239MaxMind.com"
 
@@ -9,24 +10,54 @@ local geodb_methods = { }
 local geodb_mt = {
 	__index = geodb_methods ;
 }
+local file_contents_methods = { }
+local file_contents_mt = {
+	__index = file_contents_methods ;
+}
 local data_types = { }
 local getters = { }
 
-local function open_db ( filename )
+function file_contents_methods:normalize_index ( i )
+	return math.max ( 1 , i >= 0 and i or self.size + i + 1 )
+end
+
+function file_contents_methods:sub ( i , j )
+	i , j = self:normalize_index ( i ) , math.min ( self.size , self:normalize_index ( j or -1 ) )
+	if j < i then return "" end
+	assert ( self.fd:seek ( "set" , i - 1 ) )
+	local sub = assert ( self.fd:read ( j - i + 1 ) )
+	assert ( #sub == j - i + 1 , "Could not read the requested chunk completely" )
+	return sub
+end
+
+function file_contents_methods:byte ( i , j )
+	return self:sub ( i , j or i ) :byte ( 1 , -1 )
+end
+
+local function open_db ( filename , read_once )
 	local fd = assert ( io.open ( filename , "rb" ) )
-	local contents = assert ( fd:read ( "*a" ) )
+	local size, contents
+	if read_once then
+		size = #contents
+		contents = assert ( fd:read ( "*a" ) )
+	else
+		size = assert ( fd:seek( "end" ) )
+		contents = setmetatable ( { fd = fd , size = size } , file_contents_mt )
+	end
 
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
-		local init = math.max ( 1 , #contents-(128*1024) )
+		local last_chunk_begin = math.max ( 1 , size - 128 * 1024 + 1 )
+		local last_chunk = contents:sub ( last_chunk_begin )
 		while true do
-			local s , e = contents:find ( mmdb_separator , start_metadata or init , true )
+			local s , e = last_chunk:find ( mmdb_separator , start_metadata or 1 , true )
 			if s == nil then break end
 			start_metadata = e + 1
 		end
 		if start_metadata == nil then
 			error ( "Invalid MaxMind Database" )
 		end
+		start_metadata = start_metadata + last_chunk_begin - 1
 	end
 
 	local self = setmetatable ( {
@@ -152,24 +183,17 @@ end
 data_types [ 2 ] = geodb_methods.read_string -- UTF-8
 data_types [ 4 ] = geodb_methods.read_string -- Binary
 
--- IEEE 754 numbers have bytes in the wrong order.... How did they even???
-local ieee754 = require "IEEE-754"
-local read_float = ieee754.read_float
-local read_double = ieee754.read_double
-
 function geodb_methods:read_double ( base , offset , length )
 	assert ( length == 8 , "double of non-8 length" )
 	local src = self.contents:sub ( base + offset , base + offset + 8 - 1 )
-	src = src:reverse ( )
-	return offset + 8 , read_double ( src )
+	return offset + 8 , sunpack ( ">d", src )
 end
 data_types [ 3 ] = geodb_methods.read_double -- Double
 
 function geodb_methods:read_float ( base , offset , length )
 	assert ( length == 4 , "float of non-4 length" )
 	local src = self.contents:sub ( base + offset , base + offset + 4 - 1 )
-	src = src:reverse ( )
-	return offset + 4 , read_float ( src )
+	return offset + 4 , sunpack ( ">f", src )
 end
 data_types [ 15 ] = geodb_methods.read_float -- Float
 
@@ -178,23 +202,14 @@ data_types [ 15 ] = geodb_methods.read_float -- Float
 
 -- General function
 function geodb_methods:read_unsigned ( base , offset , length )
-	local bytes = { self.contents:byte ( base + offset , base + offset + length - 1 ) }
-	local n = 0
-	for i = 1 , length do
-		n = n*256 + bytes [ i ]
-	end
-	return offset + length , n
+	if length == 0 then return offset , 0 end
+	local bytes = self.contents:sub ( base + offset , base + offset + length - 1 )
+	return offset + length , sunpack (">I" .. length, bytes)
 end
 function geodb_methods:read_signed ( base , offset , length )
-	local bytes = { self.contents:byte ( base + offset , base + offset + length - 1 ) }
-	local n = 0
-	for i = 1 , length do
-		n = n*256 + bytes [ i ]
-	end
-	if bit.bor ( 0x80 , bytes [ 1 ] ) ~= 0 then -- Negative
-		n = n*-1
-	end
-	return offset + length , n
+	if length == 0 then return offset , 0 end
+	local bytes = self.contents:sub ( base + offset , base + offset + length - 1 )
+	return offset + length , sunpack (">i" .. length, bytes)
 end
 
 data_types [ 5 ] = geodb_methods.read_unsigned -- unsigned 16-bit int
@@ -202,86 +217,6 @@ data_types [ 6 ] = geodb_methods.read_unsigned -- unsigned 32-bit int
 data_types [ 8 ] = geodb_methods.read_signed -- signed 32-bit int
 data_types [ 9 ] = geodb_methods.read_unsigned -- unsigned 64-bit int
 data_types [ 10 ] = geodb_methods.read_unsigned -- unsigned 128-bit int
-
--- Specialise if we have ffi
-if has_ffi then
-	local const_char_a = ffi.typeof ( "const char*" )
-	local buff = ffi.new ( "char[8]" )
-	local uint16_p = ffi.typeof ( "uint16_t*" )
-	local uint32_p = ffi.typeof ( "uint32_t*" )
-	local int32_p = ffi.typeof ( "int32_t*" )
-	local uint64_p = ffi.typeof ( "uint64_t*" )
-	if ffi.abi ( "le" ) then
-		function geodb_methods:read_uint16 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+4-length , src , length )
-			local x = ffi.cast ( uint32_p , buff )[0]
-			ffi.fill ( buff+4-length , length )
-			x = bit.bswap ( x )
-			return offset + length , x
-		end
-		function geodb_methods:read_uint32 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+4-length , src , length )
-			local x = ffi.cast ( uint32_p , buff )[0]
-			ffi.fill ( buff+4-length , length )
-			x = bit.bswap ( x )
-			return offset + length , x
-		end
-		function geodb_methods:read_int32 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+4-length , src , length )
-			local x = ffi.cast ( int32_p , buff )[0]
-			ffi.fill ( buff+4-length , length )
-			x = bit.bswap ( x )
-			return offset + length , x
-		end
-		function geodb_methods:read_uint64 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+8-length , src , length )
-			-- Do uint64 in two parts; as we only have a 32bit swap operation
-			local as_u32 = ffi.cast ( uint32_p , buff )
-			as_u32[0] , as_u32[1] = bit.bswap ( as_u32[1] ) , bit.bswap ( as_u32[0] )
-			local x = ffi.cast ( uint64_p , buff )[0]
-			ffi.fill ( buff , length ) -- Data has been moved; no increment of buff
-			return offset + length , x
-		end
-	else
-		function geodb_methods:read_uint16 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+2-length , src , length )
-			local x = ffi.cast ( uint16_p , buff )[0]
-			ffi.fill ( buff+2-length , length )
-			return offset + length , x
-		end
-		function geodb_methods:read_uint32 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+4-length , src , length )
-			local x = ffi.cast ( uint32_p , buff )[0]
-			ffi.fill ( buff+4-length , length )
-			return offset + length , x
-		end
-		function geodb_methods:read_int32 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+4-length , src , length )
-			local x = ffi.cast ( int32_p , buff )[0]
-			ffi.fill ( buff+4-length , length )
-			return offset + length , x
-		end
-		function geodb_methods:read_uint64 ( base , offset , length )
-			local src = ffi.cast ( const_char_a , self.contents ) + base + offset - 1
-			ffi.copy ( buff+8-length , src , length )
-			local x = ffi.cast ( uint64_p , buff )[0]
-			ffi.fill ( buff+8-length , length )
-			return offset + length , x
-		end
-	end
-	data_types [ 5 ] = geodb_methods.read_uint16 -- unsigned 16-bit int
-	data_types [ 6 ] = geodb_methods.read_uint32 -- unsigned 32-bit int
-	data_types [ 8 ] = geodb_methods.read_int32 -- signed 32-bit int
-	data_types [ 9 ] = geodb_methods.read_uint64 -- unsigned 64-bit int
-	-- data_types [ 10 ] = geodb_methods.read_unsigned -- unsigned 128-bit int
-end
 
 function geodb_methods:read_map ( base , offset , n_pairs ) -- Map
 	local map = { }
