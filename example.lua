@@ -1,17 +1,16 @@
 -- Simple pretty printer
 local function pp ( ob , indent , stream )
-	indent = indent or ""
 	stream = stream or io.stderr
 	if type(ob) == "table" then
+		indent = indent or 0
 		stream:write("{\n")
 		do
-			local indent = indent.."\t"
 			for k,v in pairs(ob) do
-				stream:write(indent,k," = ")
-				pp(v,indent)
+				stream:write(("\t"):rep(indent+1),k," = ")
+				pp(v,indent+1)
 			end
 		end
-		stream:write(indent,"}\n")
+		stream:write(("\t"):rep(indent),"}\n")
 	elseif type(ob) == "string" then
 		stream:write(string.format("%q\n",ob))
 	else

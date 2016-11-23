@@ -39,7 +39,7 @@ local function open_db ( filename )
 		ipv4_start = 0 ;
 	} , geodb_mt )
 
-	local offset , data = self:read_data ( start_metadata , 0 )
+	local _ , data = self:read_data ( start_metadata , 0 )
 	self.data = data
 
 	local getter = getters [ data.record_size ]
@@ -78,7 +78,7 @@ function geodb_methods:read_data ( base , offset )
 	-- The next five bits in the control byte tell you how long the data
 	-- field's payload is, except for maps and pointers.
 	local data_size = bit.band ( control_byte , 31 )
-	if data_type == 1 then
+	if data_type == 1 then -- luacheck: ignore 542
 		-- Ignore for pointers
 	elseif data_size == 29 then
 		-- If the value is 29, then the size is 29 + the next byte after the type specifying bytes as an unsigned integer.
@@ -266,7 +266,7 @@ end
 
 function geodb_methods:read_map ( base , offset , n_pairs ) -- Map
 	local map = { }
-	for i = 1 , n_pairs do
+	for _ = 1 , n_pairs do
 		local key , val
 		offset , key = self:read_data ( base , offset )
 		assert ( type ( key ) == "string" )
@@ -288,11 +288,13 @@ function geodb_methods:read_array ( base , offset , n_items ) -- Array
 end
 data_types [ 11 ] = geodb_methods.read_array
 
-data_types [ 13 ] = function ( self , base , offset , zero ) -- End Marker
+-- End Marker
+data_types [ 13 ] = function ( self , base , offset , zero ) -- luacheck: ignore 212
 	return nil
 end
 
-data_types [ 14 ] = function ( self , base , offset , length ) -- Boolean
+-- Boolean
+data_types [ 14 ] = function ( self , base , offset , length ) -- luacheck: ignore 212
 	return offset + length , length == 1
 end
 
@@ -354,10 +356,10 @@ getters [ 32 ] = {
 function geodb_methods:search ( bits , node )
 	node = node or 0
 	local seen = { [node] = true }
-	for _ , bit in ipairs ( bits ) do
+	for _ , direction in ipairs ( bits ) do
 		local offset = node * self.record_length + 1
 		local record_value
-		if bit then
+		if direction then
 			record_value = self:right ( offset )
 		else
 			record_value = self:left ( offset )
