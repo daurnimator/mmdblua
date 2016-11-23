@@ -88,16 +88,12 @@ function geodb_methods:read_data(base, offset)
 		-- If the value is 30, then the size is 285 + the next two bytes after the type specifying bytes as a single unsigned integer.
 		local hi, lo = self.contents:byte(base + offset, base + offset+1)
 		offset = offset + 2
-		data_size = 285 + bit.bor(bit.lshift(hi, 8), lo)
+		data_size = 285 + hi*256 + lo
 	elseif data_size == 31 then
 		-- If the value is 31, then the size is 65,821 + the next three bytes after the type specifying bytes as a single unsigned integer.
 		local o1, o2, o3, o4 = self.contents:byte(base + offset, base + offset+3)
 		offset = offset + 4
-		data_size = 65821 + bit.bor(
-			bit.lshift(o1, 24),
-			bit.lshift(o2, 16),
-			bit.lshift(o3, 8),
-			o4)
+		data_size = 65821 + o1*16777216 + o2*65536 + o3*256 + o4
 	end
 
 	return func(self, base, offset, data_size)
@@ -110,36 +106,23 @@ function geodb_methods:read_pointer(base, offset, magic)
 		-- If the size is 0, the pointer is built by appending the next byte to the last three bits to produce an 11-bit value
 		local o1 = self.contents:byte(base + offset)
 		offset = offset + 1
-		pointer = bit.bor(
-			bit.lshift(bit.band(magic, 7), 8),
-			o1)
+		pointer = bit.band(magic, 7)*256 + o1
 	elseif size == 1 then
 		-- If the size is 1, the pointer is built by appending the next two bytes to the last three bits to produce a 19-bit value + 2048.
 		local o1, o2 = self.contents:byte(base + offset, base + offset + 1)
 		offset = offset + 2
-		pointer = bit.bor(
-			bit.lshift(bit.band(magic, 7), 16),
-			bit.lshift(o1, 8),
-			o2) + 2048
+		pointer = bit.band(magic, 7)*65536 + o1*256 + o2 + 2048
 	elseif size == 2 then
 		-- If the size is 2, the pointer is built by appending the next three bytes to the last three bits to produce a 27-bit value + 526336.
 		local o1, o2, o3 = self.contents:byte(base + offset, base + offset + 2)
 		offset = offset + 3
-		pointer = bit.bor(
-			bit.lshift(bit.band(magic, 7), 24),
-			bit.lshift(o1, 16),
-			bit.lshift(o2, 8),
-			o3) + 526336
+		pointer = bit.band(magic, 7)*16777216 + o1*65536 + o2*256 + o3 + 526336
 	elseif size == 3 then
 		-- Finally, if the size is 3, the pointer's value is contained in the next four bytes as a 32-bit value.
 		-- In this case, the last three bits of the control byte are ignored.
 		local o1, o2, o3, o4 = self.contents:byte(base + offset, base + offset+3)
 		offset = offset + 4
-		pointer = bit.bor(
-			bit.lshift(o1, 24),
-			bit.lshift(o2, 16),
-			bit.lshift(o3, 8),
-			o4)
+		pointer = o1*16777216 + o2*65536 + o3*256 + o4
 	end
 	local _, val = self:read_data(base, pointer)
 	return offset, val
@@ -301,55 +284,33 @@ end
 getters[24] = {
 	left = function(self, offset)
 		local o1, o2, o3 = self.contents:byte(offset, offset + 2)
-		return bit.bor(
-			bit.lshift(o1, 16),
-			bit.lshift(o2, 8),
-			o3)
+		return o1*65536 + o2*256 + o3
 	end;
 	right = function(self, offset)
 		local o1, o2, o3 = self.contents:byte(offset + 3, offset + 5)
-		return bit.bor(
-			bit.lshift(o1, 16),
-			bit.lshift(o2, 8),
-			o3)
+		return o1*65536 + o2*256 + o3
 	end;
 	record_length = 6;
 }
 getters[28] = {
 	left = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset, offset + 3)
-		return bit.bor(
-			bit.lshift(bit.band(o4, 0xf0), 20),
-			bit.lshift(o1, 16),
-			bit.lshift(o2, 8),
-			o3)
+		return bit.band(o4, 0xF0)*1048576 + o1*65536 + o2*256 + o3
 	end;
 	right = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset + 3, offset + 6)
-		return bit.bor(
-			bit.lshift(bit.band(o1, 0x0F), 24),
-			bit.lshift(o2, 16),
-			bit.lshift(o3, 8),
-			o4)
+		return bit.band(o1, 0x0F)*16777216 + o2*65536 + o3*256 + o4
 	end;
 	record_length = 7;
 }
 getters[32] = {
 	left = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset, offset + 3)
-		return bit.bor(
-			bit.lshift(o1, 24),
-			bit.lshift(o2, 16),
-			bit.lshift(o3, 8),
-			o4)
+		return o1*16777216 + o2*65536 + o3*256 + o4
 	end;
 	right = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset + 4, offset + 7)
-		return bit.bor(
-			bit.lshift(o1, 24),
-			bit.lshift(o2, 16),
-			bit.lshift(o3, 8),
-			o4)
+		return o1*16777216 + o2*65536 + o3*256 + o4
 	end;
 	record_length = 8;
 }
