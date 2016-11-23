@@ -3,7 +3,7 @@ version = "scm-0"
 
 description = {
 	summary = "Library for reading MaxMind's Geolocation database format.";
-	license = "MIT/X11";
+	license = "MIT";
 }
 
 dependencies = {
