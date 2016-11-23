@@ -2,6 +2,7 @@
 
 local bit = require "bit"
 local has_ffi , ffi = pcall ( require , "ffi" )
+local sunpack = string.unpack or require "compat53.string".unpack
 
 local mmdb_separator = "\171\205\239MaxMind.com"
 
@@ -152,24 +153,15 @@ end
 data_types [ 2 ] = geodb_methods.read_string -- UTF-8
 data_types [ 4 ] = geodb_methods.read_string -- Binary
 
--- IEEE 754 numbers have bytes in the wrong order.... How did they even???
-local ieee754 = require "IEEE-754"
-local read_float = ieee754.read_float
-local read_double = ieee754.read_double
-
 function geodb_methods:read_double ( base , offset , length )
 	assert ( length == 8 , "double of non-8 length" )
-	local src = self.contents:sub ( base + offset , base + offset + 8 - 1 )
-	src = src:reverse ( )
-	return offset + 8 , read_double ( src )
+	return offset + 8, sunpack ( ">d" , self.contents , base + offset )
 end
 data_types [ 3 ] = geodb_methods.read_double -- Double
 
 function geodb_methods:read_float ( base , offset , length )
 	assert ( length == 4 , "float of non-4 length" )
-	local src = self.contents:sub ( base + offset , base + offset + 4 - 1 )
-	src = src:reverse ( )
-	return offset + 4 , read_float ( src )
+	return offset + 4, sunpack ( ">f" , self.contents , base + offset )
 end
 data_types [ 15 ] = geodb_methods.read_float -- Float
 
@@ -178,23 +170,12 @@ data_types [ 15 ] = geodb_methods.read_float -- Float
 
 -- General function
 function geodb_methods:read_unsigned ( base , offset , length )
-	local bytes = { self.contents:byte ( base + offset , base + offset + length - 1 ) }
-	local n = 0
-	for i = 1 , length do
-		n = n*256 + bytes [ i ]
-	end
-	return offset + length , n
+	if length == 0 then return offset , 0 end
+	return offset + length, sunpack ( ">I" .. length , self.contents , base + offset )
 end
 function geodb_methods:read_signed ( base , offset , length )
-	local bytes = { self.contents:byte ( base + offset , base + offset + length - 1 ) }
-	local n = 0
-	for i = 1 , length do
-		n = n*256 + bytes [ i ]
-	end
-	if bit.bor ( 0x80 , bytes [ 1 ] ) ~= 0 then -- Negative
-		n = n*-1
-	end
-	return offset + length , n
+	if length == 0 then return offset , 0 end
+	return offset + length, sunpack ( ">i" .. length , self.contents , base + offset )
 end
 
 data_types [ 5 ] = geodb_methods.read_unsigned -- unsigned 16-bit int

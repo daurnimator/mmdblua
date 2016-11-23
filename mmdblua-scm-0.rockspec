@@ -8,6 +8,7 @@ description = {
 
 dependencies = {
 	"lua >= 5.1";
+	"compat53 >= 0.3"; -- Only if lua < 5.3
 	"luabitop";
 }
 
@@ -18,7 +19,6 @@ source = {
 build = {
 	type = "builtin" ;
 	modules = {
-		["mmdb"]     = "mmdb.lua";
-		["IEEE-754"] = "IEEE-754.lua";
+		["mmdb"] = "mmdb.lua";
 	} ;
 }
