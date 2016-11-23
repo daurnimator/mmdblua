@@ -1,6 +1,10 @@
 package = "mmdblua"
 version = "scm-0"
 
+source = {
+	url = "git://github.com/daurnimator/mmdblua.git";
+}
+
 description = {
 	summary = "Library for reading MaxMind's Geolocation database format.";
 	license = "MIT";
@@ -12,13 +16,9 @@ dependencies = {
 	"luabitop";
 }
 
-source = {
-	url = "git://github.com/daurnimator/mmdblua.git";
-}
-
 build = {
-	type = "builtin" ;
+	type = "builtin";
 	modules = {
 		["mmdb"] = "mmdb.lua";
-	} ;
+	};
 }
