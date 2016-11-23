@@ -3,13 +3,11 @@ local function ls(dir)
 	return assert(io.popen("ls -1 " .. dir)):lines()
 end
 
-describe("Works on the official MaxMind test data", function()
+describe("mmdb", function()
 	local mmdb = require "mmdb"
-	local dbs = {}
-	it("Can open all of the databases without error", function()
-		for file in ls("spec/MaxMind-DB/test-data/*.mmdb") do
-			local db = mmdb.open(file)
-			dbs[file] = db
-		end
-	end)
+	for file in ls("spec/MaxMind-DB/test-data/*.mmdb") do
+		it("can open MaxMind test data file " .. file, function()
+			mmdb.open(file)
+		end)
+	end
 end)
