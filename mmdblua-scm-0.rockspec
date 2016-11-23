@@ -19,6 +19,6 @@ dependencies = {
 build = {
 	type = "builtin";
 	modules = {
-		["mmdb"] = "mmdb.lua";
+		["mmdb"] = "mmdb/init.lua";
 	};
 }
