@@ -364,16 +364,47 @@ do -- Use IPv4-mapped IPv6 addresses located at ::ffff:/80
 end
 
 local function ipv4_to_bit_array(str)
-	local bits = {}
-	local i = 0
-	for byte in str:gmatch("(%d%d?%d?)%.?") do
-		byte = tonumber(byte)
-		for j = 1, 8 do
-			bits[i*8+j] = math.floor(byte / 2^(8-j)) % 2 == 1
-		end
-		i = i + 1
-	end
-	return bits
+	local o1, o2, o3, o4 = str:match("(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)")
+	assert(o1, "invalid IPv4 address")
+	o1 = tonumber(o1, 10)
+	o2 = tonumber(o2, 10)
+	o3 = tonumber(o3, 10)
+	o4 = tonumber(o4, 10)
+	assert(o1 <= 255 and o2 <= 255 and o3 <= 255 and o4 <= 255, "invalid IPv4 address")
+	return {
+		math.floor(o1 / 128) % 2 == 1;
+		math.floor(o1 / 64) % 2 == 1;
+		math.floor(o1 / 32) % 2 == 1;
+		math.floor(o1 / 16) % 2 == 1;
+		math.floor(o1 / 8) % 2 == 1;
+		math.floor(o1 / 4) % 2 == 1;
+		math.floor(o1 / 2) % 2 == 1;
+		o1 % 2 == 1;
+		math.floor(o2 / 128) % 2 == 1;
+		math.floor(o2 / 64) % 2 == 1;
+		math.floor(o2 / 32) % 2 == 1;
+		math.floor(o2 / 16) % 2 == 1;
+		math.floor(o2 / 8) % 2 == 1;
+		math.floor(o2 / 4) % 2 == 1;
+		math.floor(o2 / 2) % 2 == 1;
+		o2 % 2 == 1;
+		math.floor(o3 / 128) % 2 == 1;
+		math.floor(o3 / 64) % 2 == 1;
+		math.floor(o3 / 32) % 2 == 1;
+		math.floor(o3 / 16) % 2 == 1;
+		math.floor(o3 / 8) % 2 == 1;
+		math.floor(o3 / 4) % 2 == 1;
+		math.floor(o3 / 2) % 2 == 1;
+		o3 % 2 == 1;
+		math.floor(o4 / 128) % 2 == 1;
+		math.floor(o4 / 64) % 2 == 1;
+		math.floor(o4 / 32) % 2 == 1;
+		math.floor(o4 / 16) % 2 == 1;
+		math.floor(o4 / 8) % 2 == 1;
+		math.floor(o4 / 4) % 2 == 1;
+		math.floor(o4 / 2) % 2 == 1;
+		o4 % 2 == 1;
+	}
 end
 
 function geodb_methods:search_ipv4(str)
