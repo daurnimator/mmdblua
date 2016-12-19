@@ -8,6 +8,7 @@ local mmdb_separator = "\171\205\239MaxMind.com"
 
 local geodb_methods = {}
 local geodb_mt = {
+	__name = "mmdblua-database";
 	__index = geodb_methods;
 }
 local data_types = {}
