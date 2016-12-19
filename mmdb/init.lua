@@ -350,8 +350,7 @@ function geodb_methods:search(bits, node)
 	return node
 end
 
-function geodb_methods:ipv6_find_ipv4_start()
-	-- Use IPv4-mapped IPv6 addresses located at ::ffff:/80
+do -- Use IPv4-mapped IPv6 addresses located at ::ffff:/80
 	local bits = {}
 	for i = 1, 80 do
 		bits[i] = false
@@ -359,7 +358,9 @@ function geodb_methods:ipv6_find_ipv4_start()
 	for i = 81, 96 do
 		bits[i] = true
 	end
-	return self:search(bits, 0)
+	function geodb_methods:ipv6_find_ipv4_start()
+		return self:search(bits, 0)
+	end
 end
 
 local function ipv4_to_bit_array(str)
