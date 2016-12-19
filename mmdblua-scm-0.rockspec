@@ -13,7 +13,6 @@ description = {
 dependencies = {
 	"lua >= 5.1";
 	"compat53 >= 0.3"; -- Only if lua < 5.3
-	"luabitop";
 }
 
 build = {

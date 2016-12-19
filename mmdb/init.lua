@@ -1,6 +1,6 @@
 -- This implements a lua parser of http://maxmind.github.io/MaxMind-DB/
 
-local bit = require "bit"
+local has_bit, bit = pcall(require, "bit")
 local has_ffi, ffi = pcall(require, "ffi")
 local sunpack = string.unpack or require "compat53.string".unpack
 
@@ -62,7 +62,7 @@ function geodb_methods:read_data(base, offset)
 	offset = offset + 1
 
 	-- The first three bits of the control byte tell you what type the field is.
-	local data_type = bit.rshift(control_byte, 5)
+	local data_type = math.floor(control_byte / 32)
 	-- If these bits are all 0, then this is an "extended" type,
 	-- which means that the next byte contains the actual type.
 	if data_type == 0 then
@@ -77,7 +77,7 @@ function geodb_methods:read_data(base, offset)
 
 	-- The next five bits in the control byte tell you how long the data
 	-- field's payload is, except for maps and pointers.
-	local data_size = bit.band(control_byte, 31)
+	local data_size = control_byte % 32
 	if data_type == 1 then -- luacheck: ignore 542
 		-- Ignore for pointers
 	elseif data_size == 29 then
@@ -100,23 +100,23 @@ function geodb_methods:read_data(base, offset)
 end
 
 function geodb_methods:read_pointer(base, offset, magic)
-	local size = bit.rshift(magic, 3)
+	local size = math.floor(magic/8)
 	local pointer
 	if size == 0 then
 		-- If the size is 0, the pointer is built by appending the next byte to the last three bits to produce an 11-bit value
 		local o1 = self.contents:byte(base + offset)
 		offset = offset + 1
-		pointer = bit.band(magic, 7)*256 + o1
+		pointer = (magic % 8)*256 + o1
 	elseif size == 1 then
 		-- If the size is 1, the pointer is built by appending the next two bytes to the last three bits to produce a 19-bit value + 2048.
 		local o1, o2 = self.contents:byte(base + offset, base + offset + 1)
 		offset = offset + 2
-		pointer = bit.band(magic, 7)*65536 + o1*256 + o2 + 2048
+		pointer = (magic % 8)*65536 + o1*256 + o2 + 2048
 	elseif size == 2 then
 		-- If the size is 2, the pointer is built by appending the next three bytes to the last three bits to produce a 27-bit value + 526336.
 		local o1, o2, o3 = self.contents:byte(base + offset, base + offset + 2)
 		offset = offset + 3
-		pointer = bit.band(magic, 7)*16777216 + o1*65536 + o2*256 + o3 + 526336
+		pointer = (magic % 8)*16777216 + o1*65536 + o2*256 + o3 + 526336
 	elseif size == 3 then
 		-- Finally, if the size is 3, the pointer's value is contained in the next four bytes as a 32-bit value.
 		-- In this case, the last three bits of the control byte are ignored.
@@ -168,7 +168,7 @@ data_types[9] = geodb_methods.read_unsigned -- unsigned 64-bit int
 data_types[10] = geodb_methods.read_unsigned -- unsigned 128-bit int
 
 -- Specialise if we have ffi
-if has_ffi then
+if has_ffi and has_bit then
 	local const_char_a = ffi.typeof("const char*")
 	local buff = ffi.new("char[8]")
 	local uint16_p = ffi.typeof("uint16_t*")
@@ -295,11 +295,11 @@ getters[24] = {
 getters[28] = {
 	left = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset, offset + 3)
-		return bit.band(o4, 0xF0)*1048576 + o1*65536 + o2*256 + o3
+		return math.floor(o4 / 16)*16777216 + o1*65536 + o2*256 + o3
 	end;
 	right = function(self, offset)
 		local o1, o2, o3, o4 = self.contents:byte(offset + 3, offset + 6)
-		return bit.band(o1, 0x0F)*16777216 + o2*65536 + o3*256 + o4
+		return (o1 % 16)*16777216 + o2*65536 + o3*256 + o4
 	end;
 	record_length = 7;
 }
@@ -369,7 +369,7 @@ local function ipv4_to_bit_array(str)
 	for byte in str:gmatch("(%d%d?%d?)%.?") do
 		byte = tonumber(byte)
 		for j = 1, 8 do
-			bits[i*8+j] = bit.band(1, bit.rshift(byte, 8-j)) == 1
+			bits[i*8+j] = math.floor(byte / 2^(8-j)) % 2 == 1
 		end
 		i = i + 1
 	end
@@ -412,7 +412,7 @@ local function ipv6_to_bit_array(str)
 	for i = 1, 8 do
 		local u16 = components[i]
 		for j = 1, 16 do
-			bits[(i-1)*16+j] = bit.band(1, bit.rshift(u16, 16-j)) == 1
+			bits[(i-1)*16+j] = math.floor(u16 / 2^(16-j)) % 2 == 1
 		end
 	end
 	return bits
