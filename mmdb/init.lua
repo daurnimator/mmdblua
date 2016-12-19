@@ -417,7 +417,7 @@ local function ipv6_split(str)
 	for u16 in str:gmatch("(%x%x?%x?%x?):?") do
 		n = n + 1
 		u16 = tonumber(u16, 16)
-		assert(u16, "Invalid ipv6 address")
+		assert(u16, "invalid IPv6 address")
 		components[n] = u16
 	end
 	return components, n
@@ -428,7 +428,7 @@ local function ipv6_to_bit_array(str)
 	local components, n = ipv6_split(a or str)
 	if a ~= nil then
 		local end_components, m = ipv6_split(b)
-		assert(m+n <= 7, "Invalid ipv6 address")
+		assert(m+n <= 7, "invalid IPv6 address")
 		for i = n+1, 8-m do
 			components[i] = 0
 		end
@@ -436,7 +436,7 @@ local function ipv6_to_bit_array(str)
 			components[i] = end_components[i-8+m]
 		end
 	else
-		assert(n == 8, "Invalid ipv6 address")
+		assert(n == 8, "invalid IPv6 address")
 	end
 	-- Now components is an array of 16bit components
 	local bits = {}
