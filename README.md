@@ -12,6 +12,13 @@ mmdblua is available from [luarocks](https://luarocks.org/).
     $ luarocks install mmdblua
 
 
+## Dependencies
+
+If using lua < 5.3 you will need
+
+  - [compat-5.3](https://github.com/keplerproject/lua-compat-5.3) >= 0.3
+
+
 # Development
 
 ## Getting started
