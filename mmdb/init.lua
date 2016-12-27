@@ -17,6 +17,7 @@ local getters = {}
 local function open_db(filename)
 	local fd = assert(io.open(filename, "rb"))
 	local contents = assert(fd:read("*a"))
+	fd:close()
 
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
