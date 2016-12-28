@@ -19,7 +19,8 @@ local function pp(ob, indent, stream)
 end
 
 -- Download from http://dev.maxmind.com/geoip/geoip2/geolite2/
-local geodb = require "mmdb".open("GeoLite2-City.mmdb")
+local mmdb = require "mmdb"
+local geodb = assert(mmdb.read("GeoLite2-City.mmdb"))
 
 if arg[1] then
 	pp(geodb:search_ipv4(arg[1]))

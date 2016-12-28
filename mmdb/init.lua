@@ -68,6 +68,7 @@ local function read(filename)
 	return new(contents)
 end
 
+-- Deprecated:
 local function open(filename)
 	return assert(read(filename))
 end
@@ -471,5 +472,5 @@ end
 return {
 	new = new;
 	read = read;
-	open = open;
+	open = open; -- Deprecated
 }

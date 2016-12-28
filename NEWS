@@ -1,3 +1,8 @@
+UNRELEASED
+
+  - Deprecate 'open' constructor (use 'read' instead)
+
+
 0.1 - 2016-12-22
 
   - First release
