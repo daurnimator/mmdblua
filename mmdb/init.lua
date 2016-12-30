@@ -333,10 +333,10 @@ getters[32] = {
 function geodb_methods:search(bits, node)
 	node = node or 0
 	local seen = { [node] = true }
-	for i = 1, #bits do
+	for _, direction in ipairs(bits) do
 		local offset = node * self.record_length + 1
 		local record_value
-		if bits[i] then
+		if direction then
 			record_value = self:right(offset)
 		else
 			record_value = self:left(offset)
