@@ -21,12 +21,16 @@ end
 
 local function open_db(safe, filename)
 	local fd, err = io.open(filename, "rb")
-	if not fd then return fail(safe, err) end
+	if not fd then
+		return fail(safe, err)
+	end
 
 	local contents, err = fd:read("*a")
 	fd:close()
 
-	if not contents then return fail(safe, err) end
+	if not contents then
+		return fail(safe, err)
+	end
 
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
@@ -56,7 +60,7 @@ local function open_db(safe, filename)
 
 	local getter = getters[data.record_size]
 	if getter == nil then
-		return self:fail("Unsupported record size: " .. tostring(data.record_size))
+		return fail(self.safe, "Unsupported record size: " .. tostring(data.record_size))
 	end
 	self.left, self.right, self.record_length = getter.left, getter.right, getter.record_length
 
@@ -67,10 +71,6 @@ local function open_db(safe, filename)
 	end
 
 	return self
-end
-
-function geodb_methods:fail(...)
-	return fail(self.safe, ...)
 end
 
 function geodb_methods:read_data(base, offset)
@@ -381,7 +381,9 @@ end
 
 local function ipv4_to_bit_array(str)
 	local o1, o2, o3, o4 = str:match("(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)")
-	if not o1 then return "invalid IPv4 address" end
+	if not o1 then
+		return nil, "invalid IPv4 address"
+	end
 	o1 = tonumber(o1, 10)
 	o2 = tonumber(o2, 10)
 	o3 = tonumber(o3, 10)
@@ -428,7 +430,9 @@ end
 
 function geodb_methods:search_ipv4(str)
 	local bits, err = ipv4_to_bit_array(str)
-	if not bits then return self:fail(err) end
+	if not bits then
+		return fail(self.safe, err)
+	end
 	return select(2, self:search(bits, self.ipv4_start))
 end
 
@@ -459,7 +463,9 @@ local function ipv6_to_bit_array(str)
 			components[i] = end_components[i-8+m]
 		end
 	else
-		if n ~= 8 then return nil, "invalid IPv6 address" end
+		if n ~= 8 then
+			return nil, "invalid IPv6 address"
+		end
 	end
 	-- Now components is an array of 16bit components
 	local bits = {}
@@ -474,7 +480,9 @@ end
 
 function geodb_methods:search_ipv6(str)
 	local bits, err = ipv6_to_bit_array(str)
-	if not bits then return self:fail(err) end
+	if not bits then
+		return fail(self.safe, err)
+	end
 	return select(2, self:search(bits))
 end
 
