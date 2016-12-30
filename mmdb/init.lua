@@ -494,7 +494,15 @@ function geodb_methods:search_ipv6(str)
 	return select(2, self:search(bits))
 end
 
+local function open(...)
+	return open_db(false, ...)
+end
+
+local function open_safe(...)
+	return open_db(true, ...)
+end
+
 return {
-	open = function(...) return open_db(false, ...) end;
-	open_safe = function(...) return open_db(true, ...) end;
+	open = open;
+	open_safe = open_safe;
 }
