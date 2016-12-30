@@ -442,7 +442,9 @@ local function ipv6_split(str)
 	for u16 in str:gmatch("(%x%x?%x?%x?):?") do
 		n = n + 1
 		u16 = tonumber(u16, 16)
-		if not u16 then return nil, "invalid IPv6 address" end
+		if not u16 then
+			return nil, "invalid IPv6 address"
+		end
 		components[n] = u16
 	end
 	return components, n
@@ -451,11 +453,17 @@ end
 local function ipv6_to_bit_array(str)
 	local a, b = str:match("^([%x:]-)::([%x:]*)$")
 	local components, n = ipv6_split(a or str)
-	if not components then return nil, n end
+	if not components then
+		return nil, n
+	end
 	if a ~= nil then
 		local end_components, m = ipv6_split(b)
-		if not end_components then return nil, m end
-		if m+n > 7 then return nil, "invalid IPv6 address" end
+		if not end_components then
+			return nil, m
+		end
+		if m+n > 7 then
+			return nil, "invalid IPv6 address"
+		end
 		for i = n+1, 8-m do
 			components[i] = 0
 		end
