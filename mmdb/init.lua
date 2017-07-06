@@ -15,7 +15,9 @@ local data_types = {}
 local getters = {}
 
 local function fail(safe, ...)
-	if safe then return nil, ... end
+	if safe then
+		return nil, ...
+	end
 	error(..., 2)
 end
 
