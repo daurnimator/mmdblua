@@ -1,3 +1,8 @@
+UNRELEASED
+
+  - Fix bug when reading boolean values (@Prasaana-sr)
+
+
 0.1 - 2016-12-22
 
   - First release

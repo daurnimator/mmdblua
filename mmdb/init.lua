@@ -279,9 +279,9 @@ data_types[13] = function(self, base, offset, zero) -- luacheck: ignore 212
 	return nil
 end
 
--- Boolean
+-- Boolean: The length information for a boolean type will always be 0 or 1, indicating the value. There is no payload for this field.
 data_types[14] = function(self, base, offset, length) -- luacheck: ignore 212
-	return offset + length, length == 1
+	return offset, length == 1
 end
 
 getters[24] = {
