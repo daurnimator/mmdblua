@@ -1,5 +1,6 @@
 UNRELEASED
 
+  - Deprecate 'open' constructor (use 'read' instead)
   - Fix bug when reading boolean values (@Prasaana-sr)
 
 

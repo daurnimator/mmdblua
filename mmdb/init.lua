@@ -14,12 +14,7 @@ local geodb_mt = {
 local data_types = {}
 local getters = {}
 
-local function open_db(filename)
-	local fd = assert(io.open(filename, "rb"))
-	local contents, err = fd:read("*a")
-	fd:close()
-	assert(contents, err)
-
+local function new(contents)
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
 		local init = math.max(1, #contents-(128*1024))
@@ -29,7 +24,7 @@ local function open_db(filename)
 			start_metadata = e + 1
 		end
 		if start_metadata == nil then
-			error("Invalid MaxMind Database")
+			return nil, "Invalid MaxMind Database"
 		end
 	end
 
@@ -47,7 +42,7 @@ local function open_db(filename)
 
 	local getter = getters[data.record_size]
 	if getter == nil then
-		error("Unsupported record size: " .. data.record_size)
+		return nil, "Unsupported record size: " .. data.record_size
 	end
 	self.left, self.right, self.record_length = getter.left, getter.right, getter.record_length
 
@@ -58,6 +53,24 @@ local function open_db(filename)
 	end
 
 	return self
+end
+
+local function read(filename)
+	local fd, err, errno = io.open(filename, "rb")
+	if not fd then
+		return nil, err, errno
+	end
+	local contents, err2, errno2 = fd:read("*a")
+	fd:close()
+	if not contents then
+		return nil, err2, errno2
+	end
+	return new(contents)
+end
+
+-- Deprecated:
+local function open(filename)
+	return assert(read(filename))
 end
 
 function geodb_methods:read_data(base, offset)
@@ -466,5 +479,7 @@ function geodb_methods:search_ipv6(str)
 end
 
 return {
-	open = open_db;
+	new = new;
+	read = read;
+	open = open; -- Deprecated
 }
