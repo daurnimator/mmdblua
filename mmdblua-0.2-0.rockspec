@@ -1,8 +1,9 @@
 package = "mmdblua"
-version = "scm-0"
+version = "0.2-0"
 
 source = {
-	url = "git://github.com/daurnimator/mmdblua.git";
+	url = "https://github.com/daurnimator/mmdblua/archive/v0.2.zip";
+	dir = "mmdblua-0.2";
 }
 
 description = {
