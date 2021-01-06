@@ -2,7 +2,7 @@
 
 local has_bit, bit = pcall(require, "bit")
 local has_ffi, ffi = pcall(require, "ffi")
-local sunpack = string.unpack or require "compat53.string".unpack
+local sunpack = string.unpack or require "compat53.string".unpack -- luacheck: ignore 143
 
 local mmdb_separator = "\171\205\239MaxMind.com"
 
@@ -21,15 +21,7 @@ local function fail(safe, ...)
 	error(..., 2)
 end
 
-local function open_db(safe, filename)
-	local fd, err = io.open(filename, "rb")
-	if not fd then
-		return fail(safe, err)
-	end
-
-	local contents, err = fd:read("*a")
-	fd:close()
-
+local function new(contents, safe)
 	if not contents then
 		return fail(safe, err)
 	end
@@ -75,6 +67,24 @@ local function open_db(safe, filename)
 	return self
 end
 
+local function read(filename, safe)
+	local fd, err, errno = io.open(filename, "rb")
+	if not fd then
+		return fail(safe, err, errno)
+	end
+	local contents, err2, errno2 = fd:read("*a")
+	fd:close()
+	if not contents then
+		return fail(safe, err2, errno2)
+	end
+	return new(contents, safe)
+end
+
+-- Deprecated:
+local function open(filename)
+	return read(filename, false)
+end
+
 function geodb_methods:read_data(base, offset)
 	local control_byte = self.contents:byte(base + offset)
 	offset = offset + 1
@@ -99,16 +109,19 @@ function geodb_methods:read_data(base, offset)
 	if data_type == 1 then -- luacheck: ignore 542
 		-- Ignore for pointers
 	elseif data_size == 29 then
-		-- If the value is 29, then the size is 29 + the next byte after the type specifying bytes as an unsigned integer.
+		-- If the value is 29, then the size is 29 + the next byte
+		-- after the type specifying bytes as an unsigned integer.
 		data_size = 29 + self.contents:byte(base + offset)
 		offset = offset + 1
 	elseif data_size == 30 then
-		-- If the value is 30, then the size is 285 + the next two bytes after the type specifying bytes as a single unsigned integer.
+		-- If the value is 30, then the size is 285 + the next two bytes
+		-- after the type specifying bytes as a single unsigned integer.
 		local hi, lo = self.contents:byte(base + offset, base + offset+1)
 		offset = offset + 2
 		data_size = 285 + hi*256 + lo
 	elseif data_size == 31 then
-		-- If the value is 31, then the size is 65,821 + the next three bytes after the type specifying bytes as a single unsigned integer.
+		-- If the value is 31, then the size is 65,821 + the next three bytes
+		-- after the type specifying bytes as a single unsigned integer.
 		local o1, o2, o3, o4 = self.contents:byte(base + offset, base + offset+3)
 		offset = offset + 4
 		data_size = 65821 + o1*16777216 + o2*65536 + o3*256 + o4
@@ -121,22 +134,26 @@ function geodb_methods:read_pointer(base, offset, magic)
 	local size = math.floor(magic/8)
 	local pointer
 	if size == 0 then
-		-- If the size is 0, the pointer is built by appending the next byte to the last three bits to produce an 11-bit value
+		-- If the size is 0, the pointer is built by appending the next
+		-- byte to the last three bits to produce an 11-bit value.
 		local o1 = self.contents:byte(base + offset)
 		offset = offset + 1
 		pointer = (magic % 8)*256 + o1
 	elseif size == 1 then
-		-- If the size is 1, the pointer is built by appending the next two bytes to the last three bits to produce a 19-bit value + 2048.
+		-- If the size is 1, the pointer is built by appending the next
+		-- two bytes to the last three bits to produce a 19-bit value + 2048.
 		local o1, o2 = self.contents:byte(base + offset, base + offset + 1)
 		offset = offset + 2
 		pointer = (magic % 8)*65536 + o1*256 + o2 + 2048
 	elseif size == 2 then
-		-- If the size is 2, the pointer is built by appending the next three bytes to the last three bits to produce a 27-bit value + 526336.
+		-- If the size is 2, the pointer is built by appending the next
+		-- three bytes to the last three bits to produce a 27-bit value + 526336.
 		local o1, o2, o3 = self.contents:byte(base + offset, base + offset + 2)
 		offset = offset + 3
 		pointer = (magic % 8)*16777216 + o1*65536 + o2*256 + o3 + 526336
 	elseif size == 3 then
-		-- Finally, if the size is 3, the pointer's value is contained in the next four bytes as a 32-bit value.
+		-- Finally, if the size is 3, the pointer's value is contained in
+		-- the next four bytes as a 32-bit value.
 		-- In this case, the last three bits of the control byte are ignored.
 		local o1, o2, o3, o4 = self.contents:byte(base + offset, base + offset+3)
 		offset = offset + 4
@@ -295,8 +312,10 @@ data_types[13] = function(self, base, offset, zero) -- luacheck: ignore 212
 end
 
 -- Boolean
+-- The length information for a boolean type will always be 0 or 1,
+-- indicating the value. There is no payload for this field.
 data_types[14] = function(self, base, offset, length) -- luacheck: ignore 212
-	return offset + length, length == 1
+	return offset, length == 1
 end
 
 getters[24] = {
@@ -496,15 +515,8 @@ function geodb_methods:search_ipv6(str)
 	return select(2, self:search(bits))
 end
 
-local function open(...)
-	return open_db(false, ...)
-end
-
-local function open_safe(...)
-	return open_db(true, ...)
-end
-
 return {
-	open = open;
-	open_safe = open_safe;
+	new = new;
+	read = read;
+	open = open; -- Deprecated
 }
