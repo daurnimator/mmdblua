@@ -23,7 +23,7 @@ end
 
 local function new(contents, safe)
 	if not contents then
-		return fail(safe, err)
+		return fail(safe, "No MaxMind Database content")
 	end
 
 	local start_metadata do
