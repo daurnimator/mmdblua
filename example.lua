@@ -20,7 +20,7 @@ end
 
 -- Download from http://dev.maxmind.com/geoip/geoip2/geolite2/
 local mmdb = require "mmdb"
-local geodb = assert(mmdb.read("GeoLite2-City.mmdb"))
+local geodb = mmdb.read("GeoLite2-City.mmdb")
 
 if arg[1] then
 	pp(geodb:search_ipv4(arg[1]))

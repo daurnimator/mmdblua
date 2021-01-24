@@ -14,7 +14,18 @@ local geodb_mt = {
 local data_types = {}
 local getters = {}
 
-local function new(contents)
+local function fail(safe, ...)
+	if safe then
+		return nil, ...
+	end
+	error(..., 2)
+end
+
+local function new(contents, safe)
+	if not contents then
+		return fail(safe, "No MaxMind Database content")
+	end
+
 	local start_metadata do
 		-- Find data section seperator; at most it's 128kb from the end
 		local init = math.max(1, #contents-(128*1024))
@@ -24,11 +35,12 @@ local function new(contents)
 			start_metadata = e + 1
 		end
 		if start_metadata == nil then
-			return nil, "Invalid MaxMind Database"
+			return fail(safe, "Invalid MaxMind Database")
 		end
 	end
 
 	local self = setmetatable({
+		safe = not not safe;
 		contents = contents;
 		start_metadata = start_metadata;
 		data = nil;
@@ -42,7 +54,7 @@ local function new(contents)
 
 	local getter = getters[data.record_size]
 	if getter == nil then
-		return nil, "Unsupported record size: " .. data.record_size
+		return fail(self.safe, "Unsupported record size: " .. tostring(data.record_size))
 	end
 	self.left, self.right, self.record_length = getter.left, getter.right, getter.record_length
 
@@ -55,22 +67,22 @@ local function new(contents)
 	return self
 end
 
-local function read(filename)
+local function read(filename, safe)
 	local fd, err, errno = io.open(filename, "rb")
 	if not fd then
-		return nil, err, errno
+		return fail(safe, err, errno)
 	end
 	local contents, err2, errno2 = fd:read("*a")
 	fd:close()
 	if not contents then
-		return nil, err2, errno2
+		return fail(safe, err2, errno2)
 	end
-	return new(contents)
+	return new(contents, safe)
 end
 
 -- Deprecated:
 local function open(filename)
-	return assert(read(filename))
+	return read(filename, false)
 end
 
 function geodb_methods:read_data(base, offset)
@@ -390,12 +402,17 @@ end
 
 local function ipv4_to_bit_array(str)
 	local o1, o2, o3, o4 = str:match("(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)")
-	assert(o1, "invalid IPv4 address")
+	if not o1 then
+		return nil, "invalid IPv4 address"
+	end
 	o1 = tonumber(o1, 10)
 	o2 = tonumber(o2, 10)
 	o3 = tonumber(o3, 10)
 	o4 = tonumber(o4, 10)
-	assert(o1 <= 255 and o2 <= 255 and o3 <= 255 and o4 <= 255, "invalid IPv4 address")
+	if not (o1 <= 255 and o2 <= 255 and o3 <= 255 and o4 <= 255) then
+		return nil, "invalid IPv4 address"
+	end
+
 	return {
 		math.floor(o1 / 128) % 2 == 1;
 		math.floor(o1 / 64) % 2 == 1;
@@ -433,7 +450,11 @@ local function ipv4_to_bit_array(str)
 end
 
 function geodb_methods:search_ipv4(str)
-	return select(2, self:search(ipv4_to_bit_array(str), self.ipv4_start))
+	local bits, err = ipv4_to_bit_array(str)
+	if not bits then
+		return fail(self.safe, err)
+	end
+	return select(2, self:search(bits, self.ipv4_start))
 end
 
 local function ipv6_split(str)
@@ -442,7 +463,9 @@ local function ipv6_split(str)
 	for u16 in str:gmatch("(%x%x?%x?%x?):?") do
 		n = n + 1
 		u16 = tonumber(u16, 16)
-		assert(u16, "invalid IPv6 address")
+		if not u16 then
+			return nil, "invalid IPv6 address"
+		end
 		components[n] = u16
 	end
 	return components, n
@@ -451,9 +474,17 @@ end
 local function ipv6_to_bit_array(str)
 	local a, b = str:match("^([%x:]-)::([%x:]*)$")
 	local components, n = ipv6_split(a or str)
+	if not components then
+		return nil, n
+	end
 	if a ~= nil then
 		local end_components, m = ipv6_split(b)
-		assert(m+n <= 7, "invalid IPv6 address")
+		if not end_components then
+			return nil, m
+		end
+		if m+n > 7 then
+			return nil, "invalid IPv6 address"
+		end
 		for i = n+1, 8-m do
 			components[i] = 0
 		end
@@ -461,7 +492,9 @@ local function ipv6_to_bit_array(str)
 			components[i] = end_components[i-8+m]
 		end
 	else
-		assert(n == 8, "invalid IPv6 address")
+		if n ~= 8 then
+			return nil, "invalid IPv6 address"
+		end
 	end
 	-- Now components is an array of 16bit components
 	local bits = {}
@@ -475,7 +508,11 @@ local function ipv6_to_bit_array(str)
 end
 
 function geodb_methods:search_ipv6(str)
-	return select(2, self:search(ipv6_to_bit_array(str)))
+	local bits, err = ipv6_to_bit_array(str)
+	if not bits then
+		return fail(self.safe, err)
+	end
+	return select(2, self:search(bits))
 end
 
 return {
